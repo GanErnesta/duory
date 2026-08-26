@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../schedule/schedule_screen.dart';
 
 class WeeklySummary extends StatelessWidget {
   const WeeklySummary({super.key});
@@ -43,6 +44,15 @@ class WeeklySummary extends StatelessWidget {
       'color': Color(0xFF72D58E),
     },
   ];
+
+  void _openSchedule(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ScheduleScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +132,9 @@ class WeeklySummary extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () {},
+              onPressed: () {
+                _openSchedule(context);
+              },
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
