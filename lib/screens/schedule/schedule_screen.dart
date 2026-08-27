@@ -118,7 +118,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const AddScheduleSheet(),
+      builder: (_) => const AddScheduleScreen(),
     );
   }
 

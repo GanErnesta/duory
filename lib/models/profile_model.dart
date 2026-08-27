@@ -15,17 +15,23 @@ class ProfileModel {
     this.updatedAt,
   });
 
-  factory ProfileModel.fromMap(Map<String, dynamic> map) {
+  factory ProfileModel.fromMap(
+    Map<String, dynamic> map,
+  ) {
     return ProfileModel(
-      id: map['id'] as String,
-      fullName: map['full_name'] as String,
-      email: map['email'] as String?,
-      avatarUrl: map['avatar_url'] as String?,
+      id: map['id']?.toString() ?? '',
+      fullName: map['full_name']?.toString() ?? '',
+      email: map['email']?.toString(),
+      avatarUrl: map['avatar_url']?.toString(),
       createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'] as String)
+          ? DateTime.tryParse(
+              map['created_at'].toString(),
+            )
           : null,
       updatedAt: map['updated_at'] != null
-          ? DateTime.parse(map['updated_at'] as String)
+          ? DateTime.tryParse(
+              map['updated_at'].toString(),
+            )
           : null,
     );
   }
@@ -40,4 +46,26 @@ class ProfileModel {
       'updated_at': updatedAt?.toIso8601String(),
     };
   }
+
+  ProfileModel copyWith({
+    String? id,
+    String? fullName,
+    String? email,
+    Object? avatarUrl = _undefined,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return ProfileModel(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      avatarUrl: avatarUrl == _undefined
+          ? this.avatarUrl
+          : avatarUrl as String?,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
+
+const Object _undefined = Object();

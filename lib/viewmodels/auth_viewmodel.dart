@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/profile_model.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 
@@ -15,8 +18,12 @@ class AuthViewModel extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+  ProfileModel? _profile;
+
+  bool _avatarDeleted = false;
 
   bool get isLoading => _isLoading;
+
   String? get errorMessage => _errorMessage;
 
   User? get currentUser => _authService.currentUser;
@@ -24,6 +31,53 @@ class AuthViewModel extends ChangeNotifier {
   Session? get currentSession => _authService.currentSession;
 
   bool get isLoggedIn => _authService.isLoggedIn;
+
+  ProfileModel? get profile => _profile;
+
+  String get displayName {
+    final profileName = _profile?.fullName.trim();
+
+    if (profileName != null && profileName.isNotEmpty) {
+      return profileName;
+    }
+
+    final metadata = currentUser?.userMetadata ?? {};
+
+    final name =
+        metadata['full_name']?.toString() ??
+        metadata['name']?.toString();
+
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
+    }
+
+    return 'Pengguna Duory';
+  }
+
+  String? get avatarUrl {
+    final profileAvatar = _profile?.avatarUrl;
+
+    if (profileAvatar != null &&
+        profileAvatar.trim().isNotEmpty) {
+      return profileAvatar;
+    }
+
+    if (_avatarDeleted) {
+      return null;
+    }
+
+    final metadata = currentUser?.userMetadata ?? {};
+
+    final avatar =
+        metadata['avatar_url']?.toString() ??
+        metadata['picture']?.toString();
+
+    if (avatar != null && avatar.trim().isNotEmpty) {
+      return avatar.trim();
+    }
+
+    return null;
+  }
 
   Future<bool> login({
     required String email,
@@ -36,6 +90,16 @@ class AuthViewModel extends ChangeNotifier {
         email: email.trim(),
         password: password,
       );
+
+      final user = _authService.currentUser;
+
+      if (user == null) {
+        throw Exception('Login gagal.');
+      }
+
+      _avatarDeleted = false;
+
+      await _loadOrCreateProfile(user);
 
       _stopLoading();
       return true;
@@ -62,8 +126,16 @@ class AuthViewModel extends ChangeNotifier {
         password: password,
       );
 
-      if (response.user == null) {
+      final user = response.user;
+
+      if (user == null) {
         throw Exception('Registrasi gagal.');
+      }
+
+      _avatarDeleted = false;
+
+      if (response.session != null) {
+        await _loadOrCreateProfile(user);
       }
 
       _stopLoading();
@@ -81,7 +153,9 @@ class AuthViewModel extends ChangeNotifier {
     _startLoading();
 
     try {
-      await _authService.resetPassword(email.trim());
+      await _authService.resetPassword(
+        email.trim(),
+      );
 
       _stopLoading();
       return true;
@@ -96,6 +170,7 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<bool> loginWithGoogle() async {
     _errorMessage = null;
+    notifyListeners();
 
     try {
       return await _authService.loginWithGoogle();
@@ -108,39 +183,53 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    try {
-      await _authService.logout();
-      _errorMessage = null;
-    } on AuthException catch (e) {
-      _setError(_parseError(e.message));
-      return;
-    } catch (e) {
-      _setError(_parseError(e));
-      return;
-    }
+  Future<void> _loadOrCreateProfile(User user) async {
+    await _profileService.ensureProfileFromUser(user);
+
+    _profile = await _profileService.getProfile(
+      user.id,
+    );
 
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>?> getProfile() async {
+  Future<bool> loadProfile() async {
     final user = currentUser;
 
     if (user == null) {
-      return null;
+      _setError('User belum login.');
+      return false;
     }
 
     try {
-      final profile = await _profileService.getProfile(user.id);
+      _profile = await _profileService.getProfile(
+        user.id,
+      );
 
-      if (profile == null) {
-        return null;
+      if (_profile == null) {
+        await _profileService.ensureProfileFromUser(
+          user,
+        );
+
+        _profile = await _profileService.getProfile(
+          user.id,
+        );
       }
 
-      return profile.toMap();
+      if (_profile == null) {
+        _setError(
+          'Profil pengguna tidak ditemukan.',
+        );
+        return false;
+      }
+
+      _errorMessage = null;
+      notifyListeners();
+
+      return true;
     } catch (e) {
       _setError(_parseError(e));
-      return null;
+      return false;
     }
   }
 
@@ -154,12 +243,25 @@ class AuthViewModel extends ChangeNotifier {
       return false;
     }
 
+    final name = fullName.trim();
+
+    if (name.isEmpty) {
+      _setError(
+        'Nama lengkap tidak boleh kosong.',
+      );
+      return false;
+    }
+
     _startLoading();
 
     try {
       await _profileService.updateProfile(
         id: user.id,
-        fullName: fullName.trim(),
+        fullName: name,
+      );
+
+      _profile = await _profileService.getProfile(
+        user.id,
       );
 
       _stopLoading();
@@ -167,6 +269,174 @@ class AuthViewModel extends ChangeNotifier {
     } catch (e) {
       _setError(_parseError(e));
       return false;
+    }
+  }
+
+  Future<bool> uploadAvatar(
+    Uint8List bytes,
+  ) async {
+    final user = currentUser;
+
+    if (user == null) {
+      _setError('User belum login.');
+      return false;
+    }
+
+    if (bytes.isEmpty) {
+      _setError('Foto tidak valid.');
+      return false;
+    }
+
+    _startLoading();
+
+    try {
+      final avatarUrl =
+          await _profileService.uploadAvatar(
+        userId: user.id,
+        bytes: bytes,
+      );
+
+      if (_profile != null) {
+        _profile = _profile!.copyWith(
+          avatarUrl: avatarUrl,
+          updatedAt: DateTime.now(),
+        );
+      } else {
+        _profile =
+            await _profileService.getProfile(
+          user.id,
+        );
+      }
+
+      _avatarDeleted = false;
+
+      _stopLoading();
+      return true;
+    } catch (e) {
+      _setError(_parseError(e));
+      return false;
+    }
+  }
+
+  Future<bool> deleteAvatar() async {
+    final user = currentUser;
+
+    if (user == null) {
+      _setError('User belum login.');
+      return false;
+    }
+
+    _startLoading();
+
+    try {
+      await _profileService.deleteAvatar(
+        userId: user.id,
+      );
+
+      if (_profile != null) {
+        _profile = _profile!.copyWith(
+          avatarUrl: null,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      _avatarDeleted = true;
+      _errorMessage = null;
+      _isLoading = false;
+
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      debugPrint(
+        'DELETE AVATAR ERROR: $e',
+      );
+
+      _setError(
+        'Gagal menghapus foto profil.',
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> updateAvatar(
+    String? avatarUrl,
+  ) async {
+    final user = currentUser;
+
+    if (user == null) {
+      _setError('User belum login.');
+      return false;
+    }
+
+    _startLoading();
+
+    try {
+      await _profileService.updateAvatar(
+        id: user.id,
+        avatarUrl: avatarUrl,
+      );
+
+      if (_profile != null) {
+        _profile = _profile!.copyWith(
+          avatarUrl: avatarUrl,
+          updatedAt: DateTime.now(),
+        );
+      } else {
+        _profile =
+            await _profileService.getProfile(
+          user.id,
+        );
+      }
+
+      _avatarDeleted = avatarUrl == null;
+
+      _stopLoading();
+      return true;
+    } catch (e) {
+      _setError(_parseError(e));
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getProfile() async {
+    final user = currentUser;
+
+    if (user == null) {
+      return null;
+    }
+
+    try {
+      if (_profile == null) {
+        final success = await loadProfile();
+
+        if (!success) {
+          return null;
+        }
+      }
+
+      return _profile?.toMap();
+    } catch (e) {
+      _setError(_parseError(e));
+      return null;
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _authService.logout();
+
+      _profile = null;
+      _errorMessage = null;
+      _isLoading = false;
+      _avatarDeleted = false;
+
+      notifyListeners();
+    } on AuthException catch (e) {
+      _setError(_parseError(e.message));
+    } catch (e) {
+      _setError(_parseError(e));
     }
   }
 
@@ -195,15 +465,21 @@ class AuthViewModel extends ChangeNotifier {
   String _parseError(Object error) {
     final message = error.toString().toLowerCase();
 
-    if (message.contains('invalid login credentials')) {
+    if (message.contains(
+      'invalid login credentials',
+    )) {
       return 'Email atau password salah.';
     }
 
-    if (message.contains('user already registered')) {
+    if (message.contains(
+      'user already registered',
+    )) {
       return 'Email sudah terdaftar.';
     }
 
-    if (message.contains('password should be at least')) {
+    if (message.contains(
+      'password should be at least',
+    )) {
       return 'Password terlalu pendek.';
     }
 
@@ -211,15 +487,35 @@ class AuthViewModel extends ChangeNotifier {
       return 'Format email tidak valid.';
     }
 
-    if (message.contains('email not confirmed')) {
+    if (message.contains(
+      'email not confirmed',
+    )) {
       return 'Email belum dikonfirmasi.';
     }
 
-    if (message.contains('email rate limit exceeded')) {
+    if (message.contains(
+      'email rate limit exceeded',
+    )) {
       return 'Terlalu banyak percobaan. Coba lagi nanti.';
     }
 
-    if (message.contains('network')) {
+    if (message.contains(
+          'permission denied',
+        ) ||
+        message.contains(
+          'row-level security',
+        ) ||
+        message.contains('rls')) {
+      return 'Tidak memiliki izin untuk mengakses data.';
+    }
+
+    if (message.contains('storage')) {
+      return 'Gagal mengunggah foto profil.';
+    }
+
+    if (message.contains('network') ||
+        message.contains('socketexception') ||
+        message.contains('connection')) {
       return 'Tidak dapat terhubung ke server.';
     }
 

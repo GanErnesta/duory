@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -20,10 +22,64 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  StreamSubscription<AuthState>? _authSubscription;
+
   bool _obscurePassword = true;
+  bool _isNavigating = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen(
+      (data) async {
+        if (!mounted) return;
+
+        if (data.event == AuthChangeEvent.signedIn) {
+          await _handleGoogleSignedIn();
+        }
+      },
+    );
+  }
+
+  Future<void> _handleGoogleSignedIn() async {
+    if (_isNavigating) return;
+
+    _isNavigating = true;
+
+    try {
+      final authViewModel = context.read<AuthViewModel>();
+
+      await authViewModel.loadProfile();
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+        ),
+        (route) => false,
+      );
+    } catch (e) {
+      _isNavigating = false;
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Gagal memuat profil. Silakan coba lagi.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -35,25 +91,44 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan password wajib diisi.')),
+        const SnackBar(
+          content: Text(
+            'Email dan password wajib diisi.',
+          ),
+        ),
       );
       return;
     }
 
     final authViewModel = context.read<AuthViewModel>();
 
-    final success = await authViewModel.login(email: email, password: password);
+    final success = await authViewModel.login(
+      email: email,
+      password: password,
+    );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.pushReplacement(
+      await authViewModel.loadProfile();
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+        ),
+        (route) => false,
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(authViewModel.errorMessage ?? 'Login gagal.')),
+        SnackBar(
+          content: Text(
+            authViewModel.errorMessage ??
+                'Login gagal.',
+          ),
+        ),
       );
     }
   }
@@ -61,14 +136,20 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithGoogle() async {
     final authViewModel = context.read<AuthViewModel>();
 
-    await authViewModel.loginWithGoogle();
+    final success =
+        await authViewModel.loginWithGoogle();
 
     if (!mounted) return;
 
-    if (authViewModel.errorMessage != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(authViewModel.errorMessage!)));
+    if (!success &&
+        authViewModel.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authViewModel.errorMessage!,
+          ),
+        ),
+      );
     }
   }
 
@@ -78,9 +159,12 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: AppColors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               const Spacer(),
 
@@ -93,20 +177,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: const [
                     TextSpan(
                       text: 'Selamat ',
-                      style: TextStyle(color: AppColors.red),
+                      style: TextStyle(
+                        color: AppColors.red,
+                      ),
                     ),
                     TextSpan(
                       text: 'Datang',
-                      style: TextStyle(color: AppColors.blue),
+                      style: TextStyle(
+                        color: AppColors.blue,
+                      ),
                     ),
                     TextSpan(text: '\n'),
                     TextSpan(
                       text: 'di ',
-                      style: TextStyle(color: AppColors.red),
+                      style: TextStyle(
+                        color: AppColors.red,
+                      ),
                     ),
                     TextSpan(
                       text: 'Duory',
-                      style: TextStyle(color: Color(0xFF3B332E)),
+                      style: TextStyle(
+                        color: Color(0xFF3B332E),
+                      ),
                     ),
                   ],
                 ),
@@ -125,29 +217,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
               TextField(
                 controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                keyboardType:
+                    TextInputType.emailAddress,
                 style: AppTextStyles.regular14.copyWith(
                   color: const Color(0xFF3B332E),
                 ),
                 decoration: InputDecoration(
                   hintText: 'Masukkan email',
-                  hintStyle: AppTextStyles.regular16.copyWith(
+                  hintStyle:
+                      AppTextStyles.regular16.copyWith(
                     color: const Color(0xFFB8B8B8),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding:
+                      const EdgeInsets.symmetric(
                     horizontal: 30,
                     vertical: 16,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.red),
+                    borderRadius:
+                        BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.red),
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
                     borderSide: const BorderSide(
                       color: AppColors.red,
                       width: 1.5,
@@ -175,36 +279,50 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 decoration: InputDecoration(
                   hintText: 'Masukkan password',
-                  hintStyle: AppTextStyles.regular16.copyWith(
+                  hintStyle:
+                      AppTextStyles.regular16.copyWith(
                     color: const Color(0xFFB8B8B8),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding:
+                      const EdgeInsets.symmetric(
                     horizontal: 30,
                     vertical: 16,
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
+                          ? Icons
+                              .visibility_off_outlined
+                          : Icons
+                              .visibility_outlined,
                       color: AppColors.blueDark,
                     ),
                     onPressed: () {
                       setState(() {
-                        _obscurePassword = !_obscurePassword;
+                        _obscurePassword =
+                            !_obscurePassword;
                       });
                     },
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.red),
+                    borderRadius:
+                        BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.red),
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
                     borderSide: const BorderSide(
                       color: AppColors.red,
                       width: 1.5,
@@ -218,13 +336,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextButton(
                   onPressed: () {},
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding:
+                        const EdgeInsets.only(top: 4),
                     minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    tapTargetSize:
+                        MaterialTapTargetSize
+                            .shrinkWrap,
                   ),
                   child: Text(
                     'Lupa password?',
-                    style: AppTextStyles.regular12.copyWith(
+                    style:
+                        AppTextStyles.regular12.copyWith(
                       color: AppColors.blue,
                     ),
                   ),
@@ -234,12 +356,16 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 40),
 
               Consumer<AuthViewModel>(
-                builder: (context, viewModel, _) {
+                builder:
+                    (context, viewModel, _) {
                   return SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
-                      onPressed: viewModel.isLoading ? null : _loginWithGoogle,
+                      onPressed:
+                          viewModel.isLoading
+                              ? null
+                              : _loginWithGoogle,
                       icon: SvgPicture.asset(
                         'assets/icon/google.svg',
                         width: 20,
@@ -247,14 +373,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       label: Text(
                         'Google',
-                        style: AppTextStyles.regular16.copyWith(
+                        style: AppTextStyles
+                            .regular16
+                            .copyWith(
                           color: AppColors.red,
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      style:
+                          OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: AppColors.red,
+                        ),
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(
+                            12,
+                          ),
                         ),
                       ),
                     ),
@@ -265,33 +400,49 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 98),
 
               Consumer<AuthViewModel>(
-                builder: (context, viewModel, _) {
+                builder:
+                    (context, viewModel, _) {
                   return SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: viewModel.isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.red,
-                        foregroundColor: AppColors.white,
+                      onPressed:
+                          viewModel.isLoading
+                              ? null
+                              : _login,
+                      style:
+                          ElevatedButton.styleFrom(
+                        backgroundColor:
+                            AppColors.red,
+                        foregroundColor:
+                            AppColors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(
+                            12,
+                          ),
                         ),
                       ),
                       child: viewModel.isLoading
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(
+                              child:
+                                  CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: AppColors.white,
+                                color:
+                                    AppColors.white,
                               ),
                             )
                           : Text(
                               'Masuk',
-                              style: AppTextStyles.regular18.copyWith(
-                                color: AppColors.white,
+                              style: AppTextStyles
+                                  .regular18
+                                  .copyWith(
+                                color:
+                                    AppColors.white,
                               ),
                             ),
                     ),
@@ -307,8 +458,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       'Belum punya akun? ',
-                      style: AppTextStyles.regular14.copyWith(
-                        color: const Color(0xFF3B332E),
+                      style:
+                          AppTextStyles.regular14
+                              .copyWith(
+                        color:
+                            const Color(0xFF3B332E),
                       ),
                     ),
                     GestureDetector(
@@ -316,13 +470,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
+                            builder: (_) =>
+                                const RegisterScreen(),
                           ),
                         );
                       },
                       child: Text(
                         'Daftar',
-                        style: AppTextStyles.regular14.copyWith(
+                        style: AppTextStyles
+                            .regular14
+                            .copyWith(
                           color: AppColors.blue,
                         ),
                       ),
