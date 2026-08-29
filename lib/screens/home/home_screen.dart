@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../profile/profile_screen.dart';
 import '../inbox/inbox_screen.dart';
 import '../../core/theme/app_colors.dart';
 import 'widgets/home_bottom_nav.dart';
@@ -36,23 +37,5 @@ class _HomeScreenState extends State<HomeScreen> {
         onChanged: _onNavigationChanged,
       ),
     );
-  }
-}
-
-class InboxPage extends StatelessWidget {
-  const InboxPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Inbox'));
-  }
-}
-
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Profil'));
   }
 }
