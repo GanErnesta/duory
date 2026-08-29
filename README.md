@@ -128,7 +128,7 @@ To get a local copy up and running, follow these simple steps.
 
 1.  **Clone the repo**
     ```sh
-    git clone https://github.com/[PROFILE]/[REPOSITORY].git
+    git clone https://github.com/GanErnesta/duory.git
     ```
 2.  **Navigate to the project directory**
     ```sh
@@ -151,6 +151,6 @@ To get a local copy up and running, follow these simple steps.
 
 | Name | Role | Responsibilities | Contact |
 | --- | --- | --- | --- |
-| [FULL_NAME] | Product Manager | [Main responsibilities] | [GitHub / LinkedIn] |
-| [FULL_NAME] | UI/UX Designer | [Main responsibilities] | [GitHub / LinkedIn] |
-| [FULL_NAME] | Mobile Engineer | [Main responsibilities] | [GitHub / LinkedIn] |
+| [Muhammad Abdul Fatah] | Product Manager | Mengatur kebutuhan produk, fitur, dan arah pengembangan aplikasi | [GitHub / LinkedIn] |
+| [Pinartika Nasya Meilanty] | UI/UX Designer | Merancang tampilan, user flow, dan pengalaman pengguna aplikasi | [GitHub / LinkedIn] |
+| [Sauka Gana Dzikri] | Mobile Engineer | Mengembangkan aplikasi Flutter, integrasi backend, dan implementasi fitur | [https://github.com/GanErnesta / LinkedIn] |
