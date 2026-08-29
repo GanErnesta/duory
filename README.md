@@ -151,6 +151,6 @@ To get a local copy up and running, follow these simple steps.
 
 | Name | Role | Responsibilities | Contact |
 | --- | --- | --- | --- |
-| [Muhammad Abdul Fatah] | Product Manager | Mengatur kebutuhan produk, fitur, dan arah pengembangan aplikasi | [GitHub / LinkedIn] |
-| [Pinartika Nasya Meilanty] | UI/UX Designer | Merancang tampilan, user flow, dan pengalaman pengguna aplikasi | [GitHub / LinkedIn] |
-| [Sauka Gana Dzikri] | Mobile Engineer | Mengembangkan aplikasi Flutter, integrasi backend, dan implementasi fitur | [https://github.com/GanErnesta / LinkedIn] |
+| [Muhammad Abdul Fatah] | Product Manager | Mengatur kebutuhan produk, fitur, dan arah pengembangan aplikasi | [https://www.linkedin.com/in/abdulfatah12/] |
+| [Pinartika Nasya Meilanty] | UI/UX Designer | Merancang tampilan, user flow, dan pengalaman pengguna aplikasi | https://www.linkedin.com/in/pinartikanasya/] |
+| [Sauka Gana Dzikri] | Mobile Engineer | Mengembangkan aplikasi Flutter, integrasi backend, dan implementasi fitur | [https://github.com/GanErnesta] |
